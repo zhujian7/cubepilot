@@ -6,9 +6,11 @@
 # Pin the openclaw base to a release tag (never :latest). If a newer tag is
 # wanted, mirror it from ghcr.io/openclaw/openclaw into
 # harbor.isuanova.com/library (scripts/mirror-base-images.sh).
-ARG OPENCLAW_IMAGE_TAG=2026.8.2
+ARG OPENCLAW_IMAGE_TAG=2026.10.7
 
 FROM harbor.isuanova.com/library/golang:1.26-bookworm AS supervisor-build
+# Pin the patched toolchain from go.mod without re-mirroring this image.
+ENV GOTOOLCHAIN=auto
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -21,9 +23,11 @@ ARG KUBECTL_VERSION=v1.36.1
 
 USER root
 # curl/ca-certificates ship in the openclaw runtime image; this only guards
-# against base drift and downloads kubectl.
+# against base drift and downloads kubectl. The upgrade applies bookworm
+# security updates the published base image has not picked up.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
     && curl -fsSLo /usr/local/bin/kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl" \
     && chmod +x /usr/local/bin/kubectl \
     && rm -rf /var/lib/apt/lists/*
